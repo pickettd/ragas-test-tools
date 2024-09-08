@@ -15,6 +15,7 @@ from ragas.metrics import answer_relevancy, faithfulness, context_recall, contex
 from dotenv import load_dotenv
 # Load environment variables from .env file
 load_dotenv()
+
 # IMPORTANT: Remember to create a .env variable containing: OPENAI_API_KEY=sk-xyz where xyz is your key
 
 # fiqa is "dev", "test", "train"
@@ -201,9 +202,17 @@ split = 'test'
 question_list = final_split_df[split]["question"].to_list()
 ground_truth_list = final_split_df[split]["ground_truths"].to_list()
 
+# Starting the timer for just the generation of answers and eval portion
+start_time = time.time()
+
 print("Now generating answers from assistant")
-justOneQuestion = question_list[0]
-for question in tqdm([justOneQuestion]):
+justAskOne = False
+if justAskOne:
+    question_list = [question_list[0]]
+    ground_truth_list = [ground_truth_list[0]]
+
+
+for question in tqdm(question_list):
     answer, contexts = get_answer_contexts_from_assistant(question, assistant_id)
     # print(f'answer = {answer}')
     # print(f'contexts = {contexts}')
@@ -230,3 +239,4 @@ result = evaluate(
 )
 print("Completed running eval on "+theAssistantName+" with dataset: "+ dataSetStr)
 print(result)
+print("--- Eval run took %.2f seconds ---" % (time.time() - start_time))
