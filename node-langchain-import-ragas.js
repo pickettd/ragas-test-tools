@@ -130,6 +130,7 @@ ${personalityDefault}
     retriever: retriever,
     combineDocsChain: questionAnswerChain,
   });
+  console.time();
   const response = await ragChain.invoke({
     //chat_history,
     input: examples[groundTruthIndex].query,
@@ -176,5 +177,6 @@ ${personalityDefault}
   } else {
     console.log({ runRagas });
   }
+  console.timeEnd();
 };
 main();
