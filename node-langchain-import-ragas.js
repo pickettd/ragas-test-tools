@@ -10,10 +10,13 @@ import {
 import { createStuffDocumentsChain } from "langchain/chains/combine_documents";
 import { createHistoryAwareRetriever } from "langchain/chains/history_aware_retriever";
 import { createRetrievalChain } from "langchain/chains/retrieval";
+import { RemoteRunnable } from "@langchain/core/runnables/remote";
 
 import "dotenv/config";
 const main = async () => {
   const useAllOpenAI = true;
+  const runRagas = true;
+
   let chatModelName = "gpt-4o-mini";
   let embedModelName = "text-embedding-3-small";
 
@@ -128,18 +131,46 @@ ${personalityDefault}
     //chat_history,
     input: examples[groundTruthIndex].query,
   });
+  console.log("Using LLM:");
+  console.log(chatModelName);
+  console.log("Using embeddings:");
+  console.log(embedModelName);
+  console.log("\n");
+  console.log("Question: ");
+  console.log(examples[groundTruthIndex]["query"]);
+  console.log("LLM Answer:");
   console.log(response.answer);
-  //console.log(response.context[0]);
-  //console.log(response.context[0]?.pageContent);
+  console.log("\n");
+
   const contexts = [];
   for (let pageCont of response.context) {
     contexts.push(pageCont?.pageContent);
   }
-  const restructured_result = {
-    question: examples[groundTruthIndex].query,
-    answer: result.answer,
-    contexts,
-    ground_truth: examples[groundTruthIndex].ground_truth,
-  };
+  if (runRagas) {
+    console.log("Now running Ragas:");
+    const restructured_result = {
+      question: examples[groundTruthIndex].query,
+      answer: response.answer,
+      contexts,
+      ground_truth: examples[groundTruthIndex].ground_truth,
+    };
+    const metrics = [
+      "faithfulness",
+      "answer-relevancy",
+      "context-precision",
+      "context-recall",
+    ];
+    const metricResult = {};
+    for (let metricStr of metrics) {
+      let urlStr = "http://127.0.0.1:8100/ragas-" + metricStr;
+      const ragasRemote = new RemoteRunnable({
+        url: urlStr,
+      });
+      metricResult[metricStr] = await ragasRemote.invoke(restructured_result);
+      console.log(metricResult[metricStr]);
+    }
+  } else {
+    console.log({ runRagas });
+  }
 };
 main();
