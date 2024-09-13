@@ -1,7 +1,8 @@
 import { ChatOpenAI, OpenAIEmbeddings } from "@langchain/openai";
 import { ChatOllama, OllamaEmbeddings } from "@langchain/ollama";
 import { TextLoader } from "langchain/document_loaders/fs/text";
-import { MemoryVectorStore } from "langchain/vectorstores/memory";
+import { HNSWLib } from "@langchain/community/vectorstores/hnswlib";
+//import { MemoryVectorStore } from "langchain/vectorstores/memory";
 import { RecursiveCharacterTextSplitter } from "langchain/text_splitter";
 import {
   ChatPromptTemplate,
@@ -15,7 +16,8 @@ import { RemoteRunnable } from "@langchain/core/runnables/remote";
 import "dotenv/config";
 const main = async () => {
   const useAllOpenAI = true;
-  const runRagas = true;
+  const runRagas = false;
+  const useHnswLib = true;
 
   let chatModelName = "gpt-4o-mini";
   let embedModelName = "text-embedding-3-small";
@@ -78,10 +80,11 @@ const main = async () => {
 
   const documents = await textSplitter.splitDocuments(nyc_docs);
 
-  const vectorStore = await MemoryVectorStore.fromDocuments(
-    documents,
-    embeddings
-  );
+  //   const vectorStore = await MemoryVectorStore.fromDocuments(
+  //     documents,
+  //     embeddings
+  //   );
+  const vectorStore = await HNSWLib.fromDocuments(documents, embeddings);
 
   const retriever = vectorStore.asRetriever();
 
@@ -135,6 +138,7 @@ ${personalityDefault}
   console.log(chatModelName);
   console.log("Using embeddings:");
   console.log(embedModelName);
+  console.log({ useHnswLib });
   console.log("\n");
   console.log("Question: ");
   console.log(examples[groundTruthIndex]["query"]);
