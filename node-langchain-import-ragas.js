@@ -89,17 +89,17 @@ formulate a standalone question which can be understood
 without the chat history. Do NOT answer the question, just
 reformulate it if needed and otherwise return it as is.`;
 
-  const contextualizeQPrompt = ChatPromptTemplate.fromMessages([
-    ["system", contextualizeQSystemPrompt],
-    new MessagesPlaceholder("chat_history"),
-    ["human", "{input}"],
-  ]);
+  //   const contextualizeQPrompt = ChatPromptTemplate.fromMessages([
+  //     ["system", contextualizeQSystemPrompt],
+  //     new MessagesPlaceholder("chat_history"),
+  //     ["human", "{input}"],
+  //   ]);
 
-  const historyAwareRetriever = await createHistoryAwareRetriever({
-    llm,
-    retriever,
-    rephrasePrompt: contextualizeQPrompt,
-  });
+  //   const historyAwareRetriever = await createHistoryAwareRetriever({
+  //     llm,
+  //     retriever,
+  //     rephrasePrompt: contextualizeQPrompt,
+  //   });
   const personalityDefault =
     `You are an assistant for question-answering tasks. Use
   the following pieces of retrieved context to answer the
@@ -114,16 +114,8 @@ ${personalityDefault}
 
   const promptSystem = ChatPromptTemplate.fromMessages([
     ["system", system],
-    //new MessagesPlaceholder("chat_history"),
     ["human", "{input}"],
   ]);
-  const index = vectorStore.index;
-
-  //   const vectors = [];
-
-  //   for (let i = 0; i < index.getCurrentCount(); i++) {
-  //     vectors.push(index.getPoint(i));
-  //   }
   const questionAnswerChain = await createStuffDocumentsChain({
     llm,
     prompt: promptSystem,
@@ -136,6 +128,18 @@ ${personalityDefault}
     //chat_history,
     input: examples[groundTruthIndex].query,
   });
-  console.log(response);
+  console.log(response.answer);
+  //console.log(response.context[0]);
+  //console.log(response.context[0]?.pageContent);
+  const contexts = [];
+  for (let pageCont of response.context) {
+    contexts.push(pageCont?.pageContent);
+  }
+  const restructured_result = {
+    question: examples[groundTruthIndex].query,
+    answer: result.answer,
+    contexts,
+    ground_truth: examples[groundTruthIndex].ground_truth,
+  };
 };
 main();
