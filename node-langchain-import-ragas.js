@@ -35,7 +35,10 @@ const main = async () => {
   }
 
   const useHnswLib = true;
-  const dataSetStr = "trec-covid";
+  // const dataSetStr = "fiqa";
+  // I think the scifact dataset doesn't have questions for queries (maybe just search terms?)
+  const dataSetStr = "scifact";
+  // const dataSetStr = "trec-covid";
   const knowledge_datas_path = "./knowledge_datas/";
 
   let chatModelName = "gpt-4o-mini";
@@ -239,7 +242,8 @@ ${personalityDefault}
   }
   console.timeEnd();
   if (runRagas) {
-    let saveResultsFileName = "./" + chatModelName + "_" + embedModelName + "_";
+    let saveResultsFileName =
+      "./results-ragas/" + chatModelName + "_" + embedModelName + "_";
     if (useHnswLib) {
       saveResultsFileName += "useHnswLib_";
     } else {
