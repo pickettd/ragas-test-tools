@@ -245,17 +245,29 @@ ${personalityDefault}
     } else {
       saveResultsFileName += "NOTHnswLib_";
     }
-    saveResultsFileName += dataSetStr + "_numQuery-" + howManyQueries + ".json";
+    saveResultsFileName += dataSetStr + "_numQuery-" + howManyQueries;
     fs.writeFileSync(
-      saveResultsFileName,
+      saveResultsFileName + "_details.json",
       JSON.stringify(examples, null, 2),
       "utf8"
     );
-    console.log("Saved ragas results to", saveResultsFileName);
+    console.log(
+      "Saved ragas details to",
+      saveResultsFileName + "_details.json"
+    );
     for (let metricStr of metrics) {
       metricsMap[metricStr].avg = metricsMap[metricStr].sum / howManyQueries;
     }
     console.log(metricsMap);
+    fs.writeFileSync(
+      saveResultsFileName + "_summary.json",
+      JSON.stringify(metricsMap, null, 2),
+      "utf8"
+    );
+    console.log(
+      "Saved ragas summary to",
+      saveResultsFileName + "_summary.json"
+    );
   }
 };
 main();
