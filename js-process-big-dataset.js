@@ -7,22 +7,27 @@ import { parse } from "csv-parse/sync";
 // scifact is "test", "train"
 // trec-covid is "test"
 
-// dataSetStr = "fiqa"
+const dataSetStr = "fiqa";
 // splits = ["dev", "test", "train"]
-// corpusIdType = 'int'
+const splitFileStr = "test";
+const corpusIdType = "int";
+const idFieldStr = "_id";
 // assistantEnvVarStr = "OPENAI_FIQAT_ASSISTANT_ID"
 
-// dataSetStr = "scifact"
-// splits = ["test", "train"]
-// corpusIdType = 'int'
+// I think scifact query files are not questions
+// const dataSetStr = "scifact";
+// // splits = ["test", "train"]
+// const splitFileStr = "test";
+// const corpusIdType = "int";
+// const idFieldStr = "_id";
 // assistantEnvVarStr = "OPENAI_SCIFACT_ASSISTANT_ID"
 
 //const dataSetStr = "trec-covid";
-const splitFileStr = "test";
-const corpusIdType = "str";
-const idFieldStr = "_id";
+// const splitFileStr = "test";
+// const corpusIdType = "str";
+// const idFieldStr = "_id";
 
-const howManyQueries = 2;
+let howManyQueries = 1;
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -127,21 +132,32 @@ export default async function main(dataSetStr) {
     console.log("Building dataset");
     for (let splitToProcess of parsedSplitFile) {
       const makeObj = {
-        query: queryJsonMap[splitToProcess["query-id"]]?.text,
-        ground_truth: corpusJsonMap[splitToProcess["corpus-id"]]?.text,
+        query: queryJsonMap[splitToProcess?.["query-id"]]?.text,
+        ground_truth: corpusJsonMap[splitToProcess?.["corpus-id"]]?.text,
       };
-      splitsWithTruth.push(makeObj);
+      if (makeObj.query && makeObj.ground_truth) {
+        splitsWithTruth.push(makeObj);
+      }
+      // else {
+      //   console.log(splitToProcess);
+      //   //return;
+      // }
     }
     for (let index = 0; index < howManyQueries; index++) {
       const thisQuery = queryJsonArray[index];
       const thisSplit = parsedSplitFile.find(
         (split) => split["query-id"] == thisQuery[idFieldStr]
       );
-      const thisTruthText = corpusJsonMap[thisSplit["corpus-id"]]?.text;
-      queriesWithTruth.push({
-        query: thisQuery.text,
-        ground_truth: thisTruthText,
-      });
+      const thisTruthText = corpusJsonMap[thisSplit?.["corpus-id"]]?.text;
+      if (!thisTruthText) {
+        // console.log("No truth text for query", { thisQuery }, { thisSplit });
+        howManyQueries += 1;
+      } else {
+        queriesWithTruth.push({
+          query: thisQuery.text,
+          ground_truth: thisTruthText,
+        });
+      }
     }
     console.log("Returning dataset");
     //console.log(queriesWithTruth);
