@@ -13,6 +13,7 @@
     "@langchain/community": "^0.2.33",
     "@langchain/ollama": "^0.0.4",
     "@langchain/openai": "^0.2.11",
+    "csv": "^6.3.10",
     "dotenv": "^16.4.5",
     "hnswlib-node": "^3.0.0",
     "langchain": "^0.2.19"
