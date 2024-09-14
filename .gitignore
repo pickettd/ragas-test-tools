@@ -5,3 +5,4 @@ knowledge_datas/scifact/*
 knowledge_datas/trec-covid/*
 knowledge_datas/*.zip
 node_modules
+results-ragas
