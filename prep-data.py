@@ -21,8 +21,10 @@ dataSetStr = "trec-covid"
 splits = ["test"]
 corpusIdType = 'str'
 
+howManyQueries = 50
 
-def prepare_dataset_without_answer(knowledge_path):
+
+def prepare_dataset_without_answer(knowledge_path, max_items_per_split=None):
     dataset_name = dataSetStr
 
     if not os.path.exists(os.path.join(knowledge_path, f'{dataset_name}.zip')):
@@ -74,10 +76,12 @@ def prepare_dataset_without_answer(knowledge_path):
             include_groups=False
         )
 
+        if max_items_per_split is not None:
+            grouped = grouped.head(max_items_per_split)
+
         final_split_df[split] = grouped
 
     return final_split_df
-
 
 knowledge_datas_path = './knowledge_datas'
 txt_doc_path = os.path.join(knowledge_datas_path, dataSetStr+'_doc.txt')
@@ -87,7 +91,7 @@ if not os.path.exists(knowledge_datas_path):
 contexts_list = []
 answer_list = []
 
-final_split_df = prepare_dataset_without_answer(knowledge_datas_path)
+final_split_df = prepare_dataset_without_answer(knowledge_datas_path, max_items_per_split=howManyQueries)
 
 docs = []
 
