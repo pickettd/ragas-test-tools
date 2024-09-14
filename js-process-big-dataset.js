@@ -22,7 +22,7 @@ const splitFileStr = "test";
 const corpusIdType = "str";
 const idFieldStr = "_id";
 
-const howManyQueries = 1;
+const howManyQueries = 2;
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -112,6 +112,7 @@ export default async function main(dataSetStr) {
   );
   console.log("First QtR entry is", queriesToProcess[0]);
 
+  const splitsWithTruth = [];
   const queriesWithTruth = [];
 
   if (isCorpusDone && isQueryDone) {
@@ -124,12 +125,23 @@ export default async function main(dataSetStr) {
   }
   if (isCorpusDone && isQueryDone) {
     console.log("Building dataset");
-    for (let queryToProcess of queriesToProcess) {
+    for (let splitToProcess of parsedSplitFile) {
       const makeObj = {
-        query: queryJsonMap[queryToProcess["query-id"]]?.text,
-        ground_truth: corpusJsonMap[queryToProcess["corpus-id"]]?.text,
+        query: queryJsonMap[splitToProcess["query-id"]]?.text,
+        ground_truth: corpusJsonMap[splitToProcess["corpus-id"]]?.text,
       };
-      queriesWithTruth.push(makeObj);
+      splitsWithTruth.push(makeObj);
+    }
+    for (let index = 0; index < howManyQueries; index++) {
+      const thisQuery = queryJsonArray[index];
+      const thisSplit = parsedSplitFile.find(
+        (split) => split["query-id"] == thisQuery[idFieldStr]
+      );
+      const thisTruthText = corpusJsonMap[thisSplit["corpus-id"]]?.text;
+      queriesWithTruth.push({
+        query: thisQuery.text,
+        ground_truth: thisTruthText,
+      });
     }
     console.log("Returning dataset");
     //console.log(queriesWithTruth);

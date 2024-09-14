@@ -12,14 +12,27 @@ import { createStuffDocumentsChain } from "langchain/chains/combine_documents";
 import { createHistoryAwareRetriever } from "langchain/chains/history_aware_retriever";
 import { createRetrievalChain } from "langchain/chains/retrieval";
 import { RemoteRunnable } from "@langchain/core/runnables/remote";
+import * as fs from "node:fs";
 
 import loadDataFile from "./js-process-big-dataset.js";
 
 import "dotenv/config";
 const main = async () => {
   const useAllOpenAI = true;
-  const runRagas = false;
-  const loadSavedHnswLib = false;
+  const runRagas = true;
+  const loadSavedHnswLib = true;
+  let howManyQueries = 1;
+
+  const metrics = [
+    "faithfulness",
+    "answer-relevancy",
+    "context-precision",
+    "context-recall",
+  ];
+  const metricsMap = {};
+  for (let metricName of metrics) {
+    metricsMap[metricName] = { name: metricName, sum: 0, avg: 0 };
+  }
 
   const useHnswLib = true;
   const dataSetStr = "trec-covid";
@@ -61,6 +74,7 @@ const main = async () => {
   let loader = {};
   if (dataSetStr) {
     examples = await loadDataFile(dataSetStr);
+    howManyQueries = examples.length;
     loader = new TextLoader(knowledge_datas_path + dataSetStr + "_doc.txt");
     groundTruthIndex = 0;
   } else {
@@ -165,57 +179,83 @@ ${personalityDefault}
     combineDocsChain: questionAnswerChain,
   });
   console.time();
-  console.log(
-    "Done with creating chain. Sending query",
-    examples[groundTruthIndex].query
-  );
-  const response = await ragChain.invoke({
-    //chat_history,
-    input: examples[groundTruthIndex].query,
-  });
-  console.log("Using LLM:");
-  console.log(chatModelName);
-  console.log("Using embeddings:");
-  console.log(embedModelName);
-  console.log({ useHnswLib }, { loadSavedHnswLib });
-  console.log("\n");
-  console.log("Question: ");
-  console.log(examples[groundTruthIndex]["query"]);
-  console.log("LLM Answer:");
-  console.log(response.answer);
-  console.log("\n");
-
-  const contexts = [];
-  console.log(response.context);
-  for (let pageCont of response.context) {
-    contexts.push(pageCont?.pageContent);
-  }
-  if (runRagas) {
-    console.log("Now running Ragas:");
-    const restructured_result = {
-      question: examples[groundTruthIndex].query,
-      answer: response.answer,
-      contexts,
-      ground_truth: examples[groundTruthIndex].ground_truth,
-    };
-    const metrics = [
-      "faithfulness",
-      "answer-relevancy",
-      "context-precision",
-      "context-recall",
-    ];
-    const metricResult = {};
-    for (let metricStr of metrics) {
-      let urlStr = "http://127.0.0.1:8100/ragas-" + metricStr;
-      const ragasRemote = new RemoteRunnable({
-        url: urlStr,
-      });
-      metricResult[metricStr] = await ragasRemote.invoke(restructured_result);
-      console.log(metricResult[metricStr]);
+  for (let runIndex = 0; runIndex < examples.length; runIndex++) {
+    console.log(
+      { runIndex },
+      "Done with creating chain. Sending query",
+      examples[runIndex].query
+    );
+    const response = await ragChain.invoke({
+      //chat_history,
+      input: examples[runIndex].query,
+    });
+    if (howManyQueries === 1) {
+      console.log("Using LLM:");
+      console.log(chatModelName);
+      console.log("Using embeddings:");
+      console.log(embedModelName);
+      console.log({ useHnswLib }, { loadSavedHnswLib });
+      console.log("\n");
+      console.log("Question: ");
+      console.log(examples[runIndex]["query"]);
+      console.log("LLM Answer:");
+      console.log(response.answer);
+      console.log("\n");
     }
-  } else {
-    console.log({ runRagas });
+
+    const contexts = [];
+    for (let pageCont of response.context) {
+      contexts.push(pageCont?.pageContent);
+    }
+    if (runRagas) {
+      if (howManyQueries === 1) {
+        console.log("Now running Ragas:");
+      }
+      const restructured_result = {
+        question: examples[runIndex].query,
+        answer: response.answer,
+        contexts,
+        ground_truth: examples[runIndex].ground_truth,
+      };
+
+      const metricResult = {};
+      for (let metricStr of metrics) {
+        let urlStr = "http://127.0.0.1:8100/ragas-" + metricStr;
+        const ragasRemote = new RemoteRunnable({
+          url: urlStr,
+        });
+        metricResult[metricStr] = await ragasRemote.invoke(restructured_result);
+        if (howManyQueries === 1) {
+          console.log(metricResult[metricStr]);
+        }
+        examples[runIndex][metricStr] =
+          metricResult[metricStr][metricStr.replace("-", "_")];
+        metricsMap[metricStr].sum +=
+          metricResult[metricStr][metricStr.replace("-", "_")];
+      }
+    } else {
+      console.log({ runRagas });
+    }
   }
   console.timeEnd();
+  if (runRagas) {
+    let saveResultsFileName = "./" + chatModelName + "_" + embedModelName + "_";
+    if (useHnswLib) {
+      saveResultsFileName += "useHnswLib_";
+    } else {
+      saveResultsFileName += "NOTHnswLib_";
+    }
+    saveResultsFileName += dataSetStr + "_numQuery-" + howManyQueries + ".json";
+    fs.writeFileSync(
+      saveResultsFileName,
+      JSON.stringify(examples, null, 2),
+      "utf8"
+    );
+    console.log("Saved ragas results to", saveResultsFileName);
+    for (let metricStr of metrics) {
+      metricsMap[metricStr].avg = metricsMap[metricStr].sum / howManyQueries;
+    }
+    console.log(metricsMap);
+  }
 };
 main();
