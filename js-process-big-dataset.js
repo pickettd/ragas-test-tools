@@ -24,17 +24,17 @@ const idFieldStr = "_id";
 
 const howManyQueries = 1;
 
-const knowledge_datas_path = "./knowledge_datas/";
-const corpusFilePath = knowledge_datas_path + dataSetStr + "/corpus.jsonl";
-const queryFilePath = knowledge_datas_path + dataSetStr + "/queries.jsonl";
-const splitFilePath =
-  knowledge_datas_path + dataSetStr + "/qrels/" + splitFileStr + ".tsv";
-
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 export default async function main(dataSetStr) {
+  const knowledge_datas_path = "./knowledge_datas/";
+  const corpusFilePath = knowledge_datas_path + dataSetStr + "/corpus.jsonl";
+  const queryFilePath = knowledge_datas_path + dataSetStr + "/queries.jsonl";
+  const splitFilePath =
+    knowledge_datas_path + dataSetStr + "/qrels/" + splitFileStr + ".tsv";
+
   // create a readline interface for reading the file line by line
   const rl = readline.createInterface({
     input: fs.createReadStream(corpusFilePath),
@@ -92,16 +92,13 @@ export default async function main(dataSetStr) {
 
   // Read the split file
   const splitFileData = fs.readFileSync(splitFilePath, "utf8");
+  // parse the TSV
   const parsedSplitFile = parse(splitFileData, {
     columns: true,
     skip_empty_lines: true,
     delimiter: "\t",
   });
-  // const parsedSplitFile = parse(splitFileData, {
-  //   columns: true,
-  //   skip_empty_lines: true,
-  // });
-  // parse the TSV
+
   console.log("Parsed the TSV file. Length is", parsedSplitFile.length);
   //console.log("First TSV entry is", parsedSplitFile[0]);
 
@@ -126,7 +123,7 @@ export default async function main(dataSetStr) {
     }
   }
   if (isCorpusDone && isQueryDone) {
-    console.log("Ready to build dataset");
+    console.log("Building dataset");
     for (let queryToProcess of queriesToProcess) {
       const makeObj = {
         query: queryJsonMap[queryToProcess["query-id"]]?.text,
@@ -134,6 +131,7 @@ export default async function main(dataSetStr) {
       };
       queriesWithTruth.push(makeObj);
     }
+    console.log("Returning dataset");
     //console.log(queriesWithTruth);
     return queriesWithTruth;
   } else {
