@@ -13,27 +13,39 @@ import { createHistoryAwareRetriever } from "langchain/chains/history_aware_retr
 import { createRetrievalChain } from "langchain/chains/retrieval";
 import { RemoteRunnable } from "@langchain/core/runnables/remote";
 
+import loadDataFile from "./js-process-big-dataset.js";
+
 import "dotenv/config";
 const main = async () => {
   const useAllOpenAI = true;
   const runRagas = false;
+  const loadSavedHnswLib = false;
+
   const useHnswLib = true;
+  const dataSetStr = "trec-covid";
+  const knowledge_datas_path = "./knowledge_datas/";
 
   let chatModelName = "gpt-4o-mini";
   let embedModelName = "text-embedding-3-small";
 
-  let embeddings = new OpenAIEmbeddings({ model: embedModelName });
-  let llm = new ChatOpenAI({ model: chatModelName, temperature: 0 });
+  let embeddings = null;
+  let llm = null;
 
   if (useAllOpenAI) {
     chatModelName = chatModelName;
     embedModelName = embedModelName;
+    embeddings = new OpenAIEmbeddings({ model: embedModelName });
+    llm = new ChatOpenAI({ model: chatModelName, temperature: 0 });
   } else {
     chatModelName = "llama3.1:8b-instruct-q4_K_M";
     embedModelName = "nomic-embed-text:latest";
     llm = new ChatOllama({ model: chatModelName, temperature: 0 });
     embeddings = new OllamaEmbeddings({ model: embedModelName });
   }
+
+  // Save the vector store to a directory
+  const directoryHNSW =
+    knowledge_datas_path + dataSetStr + "/HNSW_" + embedModelName;
 
   // const aiMsg = await llm.invoke([
   //   [
@@ -44,48 +56,70 @@ const main = async () => {
   // ]);
   // console.log(aiMsg);
 
-  const eval_questions = [
-    "What is the population of New York City as of 2020?",
-    "Which borough of New York City has the highest population?",
-    "What is the economic significance of New York City?",
-    "How did New York City get its name?",
-    "What is the significance of the Statue of Liberty in New York City?",
-  ];
+  let examples = [];
+  let groundTruthIndex = null;
+  let loader = {};
+  if (dataSetStr) {
+    examples = await loadDataFile(dataSetStr);
+    loader = new TextLoader(knowledge_datas_path + dataSetStr + "_doc.txt");
+    groundTruthIndex = 0;
+  } else {
+    const eval_questions = [
+      "What is the population of New York City as of 2020?",
+      "Which borough of New York City has the highest population?",
+      "What is the economic significance of New York City?",
+      "How did New York City get its name?",
+      "What is the significance of the Statue of Liberty in New York City?",
+    ];
 
-  const eval_answers = [
-    "8,804,190",
-    "Brooklyn",
-    "New York City's economic significance is vast, as it serves as the global financial capital, housing Wall Street and major financial institutions. Its diverse economy spans technology, media, healthcare, education, and more, making it resilient to economic fluctuations. NYC is a hub for international business, attracting global companies, and boasts a large, skilled labor force. Its real estate market, tourism, cultural industries, and educational institutions further fuel its economic prowess. The city's transportation network and global influence amplify its impact on the world stage, solidifying its status as a vital economic player and cultural epicenter.",
-    "New York City got its name when it came under British control in 1664. King Charles II of England granted the lands to his brother, the Duke of York, who named the city New York in his own honor.",
-    "The Statue of Liberty in New York City holds great significance as a symbol of the United States and its ideals of liberty and peace. It greeted millions of immigrants who arrived in the U.S. by ship in the late 19th and early 20th centuries, representing hope and freedom for those seeking a better life. It has since become an iconic landmark and a global symbol of cultural diversity and freedom.",
-  ];
-  const examples = [];
-  for (let a = 0; a < eval_answers.length; a++) {
-    examples.push({ query: eval_questions[a], ground_truth: eval_answers[a] });
+    const eval_answers = [
+      "8,804,190",
+      "Brooklyn",
+      "New York City's economic significance is vast, as it serves as the global financial capital, housing Wall Street and major financial institutions. Its diverse economy spans technology, media, healthcare, education, and more, making it resilient to economic fluctuations. NYC is a hub for international business, attracting global companies, and boasts a large, skilled labor force. Its real estate market, tourism, cultural industries, and educational institutions further fuel its economic prowess. The city's transportation network and global influence amplify its impact on the world stage, solidifying its status as a vital economic player and cultural epicenter.",
+      "New York City got its name when it came under British control in 1664. King Charles II of England granted the lands to his brother, the Duke of York, who named the city New York in his own honor.",
+      "The Statue of Liberty in New York City holds great significance as a symbol of the United States and its ideals of liberty and peace. It greeted millions of immigrants who arrived in the U.S. by ship in the late 19th and early 20th centuries, representing hope and freedom for those seeking a better life. It has since become an iconic landmark and a global symbol of cultural diversity and freedom.",
+    ];
+
+    for (let a = 0; a < eval_answers.length; a++) {
+      examples.push({
+        query: eval_questions[a],
+        ground_truth: eval_answers[a],
+      });
+    }
+    groundTruthIndex = 4;
+
+    loader = new TextLoader("./nyc_wikipedia/nyc_text.txt");
   }
-  const groundTruthIndex = 4;
-
-  const loader = new TextLoader("./nyc_wikipedia/nyc_text.txt");
-  const nyc_docs = await loader.load();
+  const source_docs = await loader.load();
 
   //const MAX_LINES = 10000 // Security to avoid loading huge files
 
   const textSplitter = new RecursiveCharacterTextSplitter({
     chunkSize: 1000,
     chunkOverlap: 100,
-    separators: ["\n"],
+    // NOTE - separators may need to look at for marblism!
+    //separators: ["\n"],
   });
 
   //   const texts = lines.slice(0, MAX_LINES)
 
-  const documents = await textSplitter.splitDocuments(nyc_docs);
+  const documents = await textSplitter.splitDocuments(source_docs);
 
   //   const vectorStore = await MemoryVectorStore.fromDocuments(
   //     documents,
   //     embeddings
   //   );
-  const vectorStore = await HNSWLib.fromDocuments(documents, embeddings);
-
+  let vectorStore = null;
+  console.log({ loadSavedHnswLib });
+  if (loadSavedHnswLib) {
+    // Load the vector store from the same directory
+    vectorStore = await HNSWLib.load(directoryHNSW, embeddings);
+    console.log("LOADED", { directoryHNSW });
+  } else {
+    vectorStore = await HNSWLib.fromDocuments(documents, embeddings);
+    await vectorStore.save(directoryHNSW);
+    console.log("SAVED", { directoryHNSW });
+  }
   const retriever = vectorStore.asRetriever();
 
   const contextualizeQSystemPrompt = `
@@ -131,6 +165,10 @@ ${personalityDefault}
     combineDocsChain: questionAnswerChain,
   });
   console.time();
+  console.log(
+    "Done with creating chain. Sending query",
+    examples[groundTruthIndex].query
+  );
   const response = await ragChain.invoke({
     //chat_history,
     input: examples[groundTruthIndex].query,
@@ -139,7 +177,7 @@ ${personalityDefault}
   console.log(chatModelName);
   console.log("Using embeddings:");
   console.log(embedModelName);
-  console.log({ useHnswLib });
+  console.log({ useHnswLib }, { loadSavedHnswLib });
   console.log("\n");
   console.log("Question: ");
   console.log(examples[groundTruthIndex]["query"]);
@@ -148,6 +186,7 @@ ${personalityDefault}
   console.log("\n");
 
   const contexts = [];
+  console.log(response.context);
   for (let pageCont of response.context) {
     contexts.push(pageCont?.pageContent);
   }
