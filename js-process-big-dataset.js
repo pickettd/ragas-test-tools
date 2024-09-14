@@ -17,7 +17,7 @@ import { parse } from "csv-parse/sync";
 // corpusIdType = 'int'
 // assistantEnvVarStr = "OPENAI_SCIFACT_ASSISTANT_ID"
 
-const dataSetStr = "trec-covid";
+//const dataSetStr = "trec-covid";
 const splitFileStr = "test";
 const corpusIdType = "str";
 const idFieldStr = "_id";
@@ -34,7 +34,7 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function main() {
+export default async function main(dataSetStr) {
   // create a readline interface for reading the file line by line
   const rl = readline.createInterface({
     input: fs.createReadStream(corpusFilePath),
@@ -105,12 +105,17 @@ async function main() {
   console.log("Parsed the TSV file. Length is", parsedSplitFile.length);
   //console.log("First TSV entry is", parsedSplitFile[0]);
 
-  const queriesToRun = [];
+  const queriesToProcess = [];
   for (let a = 0; a < howManyQueries; a++) {
-    queriesToRun.push(parsedSplitFile[a]);
+    queriesToProcess.push(parsedSplitFile[a]);
   }
-  console.log("Finished getting queriesToRun. Length is", queriesToRun.length);
-  console.log("First QtR entry is", queriesToRun[0]);
+  console.log(
+    "Finished getting queriesToProcess. Length is",
+    queriesToProcess.length
+  );
+  console.log("First QtR entry is", queriesToProcess[0]);
+
+  const queriesWithTruth = [];
 
   if (isCorpusDone && isQueryDone) {
     console.log("Ready to build dataset");
@@ -120,5 +125,20 @@ async function main() {
       console.log("After sleep ready to build dataset");
     }
   }
+  if (isCorpusDone && isQueryDone) {
+    console.log("Ready to build dataset");
+    for (let queryToProcess of queriesToProcess) {
+      const makeObj = {
+        query: queryJsonMap[queryToProcess["query-id"]]?.text,
+        ground_truth: corpusJsonMap[queryToProcess["corpus-id"]]?.text,
+      };
+      queriesWithTruth.push(makeObj);
+    }
+    //console.log(queriesWithTruth);
+    return queriesWithTruth;
+  } else {
+    console.log("Never got ready to build dataset");
+    return null;
+  }
 }
-main();
+//main();
