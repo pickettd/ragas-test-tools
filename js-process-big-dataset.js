@@ -115,7 +115,7 @@ async function main() {
   if (isCorpusDone && isQueryDone) {
     console.log("Ready to build dataset");
   } else {
-    await sleep(1000);
+    await sleep(2000);
     if (isCorpusDone && isQueryDone) {
       console.log("After sleep ready to build dataset");
     }
